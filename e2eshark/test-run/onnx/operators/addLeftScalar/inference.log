@@ -1,0 +1,5 @@
+EXEC @addgraph
+iree/runtime/src/iree/modules/hal/utils/buffer_diagnostics.c:214: INVALID_ARGUMENT; tensor shape rank mismatch; expected 0 (scalar) but have 1; expected shape ``, actual shape `6`; while invoking native function hal.buffer_view.assert; while calling import; 
+[ 1]   native hal.buffer_view.assert:0 -
+[ 0] bytecode module.addgraph:218 addLeftScalar.default.onnx.torch.mlir:5:23
+      at addLeftScalar.default.onnx.torch.mlir:5:3; invoking function 'addgraph'

@@ -1,0 +1,5 @@
+python runmodel.py  --todtype default --mode onnx --outfileprefix addLeftScalar 1> model-run.log 2>&1
+PYTHONPATH=/home/zjgar/code/torch-mlir/build/tools/torch-mlir/python_packages/torch_mlir python -m torch_mlir.tools.import_onnx model.onnx -o addLeftScalar.default.torch-onnx.mlir 1> onnx-import.log 2>&1
+/home/zjgar/code/torch-mlir/build/bin/torch-mlir-opt -pass-pipeline='builtin.module(func.func(convert-torch-onnx-to-torch),torch-lower-to-backend-contract,func.func(cse,canonicalize),torch-backend-to-linalg-on-tensors-backend-pipeline)' addLeftScalar.default.torch-onnx.mlir > addLeftScalar.default.onnx.torch.mlir 2>torch-mlir.log
+/home/zjgar/code/iree-build/tools/iree-compile --iree-input-demote-i64-to-i32 --iree-hal-target-backends=llvm-cpu  --iree-input-type=torch addLeftScalar.default.onnx.torch.mlir > addLeftScalar.default.vmfb 2>iree-compile.log
+/home/zjgar/code/iree-build/tools/iree-run-module --module=addLeftScalar.default.vmfb --input="6xf32=@inference_input.0.bin"  --input="6xf32=@inference_input.1.bin"  --output=@inference_output.0.bin  > inference.log 2>&1
