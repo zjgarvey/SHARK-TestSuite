@@ -193,7 +193,7 @@ If you meant literally adjacent:
       ints: -1
     }
   }
-  ```
+```
 
 
 ```MLIR
