@@ -26,26 +26,21 @@ E2ESHARK_CHECK = dict(E2ESHARK_CHECK_DEF)
 
 
 # Create an input (ValueInfoProto)
-X = make_tensor_value_info("X", TensorProto.FLOAT, [2, 3, 4])  # Example shape
+X = make_tensor_value_info("X", TensorProto.FLOAT, [-1, -1, 4])  # Example shape
+Y = make_tensor_value_info("Y", TensorProto.FLOAT, [-1, -1, 4])  # Example shape
 
 # Specify the shape of the output
-shape_tensor = make_tensor(
-    name="shape",
-    data_type=TensorProto.INT64,  # Note: Use INT64 for the shape tensor
-    dims=(3,),  # Result tensor will also be of rank 3.
-    vals=[3, 2, 4],
-)
 
 shape_node = make_node(
-    "Constant",
-    inputs=[],
+    "Shape",
+    inputs=["Y"],
     outputs=["shape"],
-    value=shape_tensor,
+    name="shape_node",
 )
 
 # Create an output (ValueInfoProto)
 # The output shape will depend on the shape tensor.
-Z = make_tensor_value_info("Z", TensorProto.FLOAT, [3, 2, 4])
+Z = make_tensor_value_info("Z", TensorProto.FLOAT, [-1, -1, 4])
 # Create an 'Reshape' node (NodeProto)
 reshape_node = make_node(
     "Reshape",
@@ -58,7 +53,7 @@ reshape_node = make_node(
 graph = make_graph(
     [shape_node, reshape_node],  # Nodes in the graph
     "reshape_graph",
-    [X],
+    [X, Y],
     [Z],
 )
 
@@ -75,19 +70,22 @@ session = onnxruntime.InferenceSession("model.onnx", None)
 model_input_X = numpy.random.randn(2, 3, 4).astype(
     numpy.float32
 )  # Match the input shape
+model_input_Y = numpy.random.randn(3, 2, 4).astype(
+    numpy.float32
+)  # Match the input shape
 inputs = session.get_inputs()
 outputs = session.get_outputs()
 
 model_output = session.run(
     [outputs[0].name],
-    {inputs[0].name: model_input_X},
+    {inputs[0].name: model_input_X, inputs[1].name: model_input_Y},
 )
 
 
-print("Input shape:", model_input_X.shape)
+print("Input shape:", model_input_X.shape, model_input_Y.shape)
 print("Output shape:", numpy.array(model_output[0]).shape)
 
-E2ESHARK_CHECK["input"] = [torch.from_numpy(model_input_X)]
+E2ESHARK_CHECK["input"] = [torch.from_numpy(model_input_X), torch.from_numpy(model_input_Y)]
 E2ESHARK_CHECK["output"] = [torch.from_numpy(arr) for arr in model_output]
 
 print("Input:", E2ESHARK_CHECK["input"])
