@@ -14,6 +14,29 @@ from e2e_testing.registry import register_test
 from e2e_testing.storage import TestTensors
 from .protected_list import protected_models, models_with_postprocessing
 
+label_map = numpy.array([
+    (0, 0, 0),  # background
+    (128, 0, 0),  # aeroplane
+    (0, 128, 0),  # bicycle
+    (128, 128, 0),  # bird
+    (0, 0, 128),  # boat
+    (128, 0, 128),  # bottle
+    (0, 128, 128),  # bus
+    (128, 128, 128),  # car
+    (64, 0, 0),  # cat
+    (192, 0, 0),  # chair
+    (64, 128, 0),  # cow
+    (192, 128, 0),  # dining table
+    (64, 0, 128),  # dog
+    (192, 0, 128),  # horse
+    (64, 128, 128),  # motorbike
+    (192, 128, 128),  # person
+    (0, 64, 0),  # potted plant
+    (128, 64, 0),  # sheep
+    (0, 192, 0),  # sofa
+    (128, 192, 0),  # train
+    (0, 64, 128),  # tv/monitor
+])
 class AzureDownloadableModel(OnnxModelInfo):
     def __init__(self, name: str, onnx_model_path: str, cache_dir: str):
         opset_version = 21
@@ -53,18 +76,51 @@ class AzureDownloadableModel(OnnxModelInfo):
             return
         raise OSError(f"No onnx model could be found, downloaded, or extracted to {model_dir}")
 
-    def apply_postprocessing(self, output: TestTensors):
-        if self.name not in models_with_postprocessing:
-            return output
-        processed_outputs = []
-        for d in output.to_torch().data:
-            processed_outputs.append(
-                torch.sort(torch.topk(torch.nn.functional.softmax(d, 1), 2)[1])[0]
-            )
-        return TestTensors(processed_outputs)
-
 for t in protected_models:
     register_test(AzureDownloadableModel, t)
+
+class DeeplabModel(AzureDownloadableModel):
+    def construct_inputs(self):
+        log_dir = self.model.rstrip("model.onnx")
+        import urllib
+        url, filename = ("https://github.com/pytorch/hub/raw/master/images/deeplab1.png", log_dir + "input.png")
+        try: urllib.URLopener().retrieve(url, filename)
+        except: urllib.request.urlretrieve(url, filename)
+        from PIL import Image
+        from torchvision import transforms
+        input_image = Image.open(filename)
+        input_image = input_image.convert("RGB")
+        preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            transforms.Resize((513,513)),
+        ])
+        input_tensor = preprocess(input_image)
+        input_batch = input_tensor.unsqueeze(0).transpose(1,2).transpose(2,3)
+        return TestTensors((input_batch,))
+
+    def apply_postprocessing(self, output: TestTensors):
+        processed_outputs = []
+        for d in output.to_torch().data:
+            c = torch.topk(torch.nn.functional.softmax(d, -1), 2)[-1][0,:,:,-1]
+            image = numpy.zeros([513,513,3]).astype(numpy.uint8)
+            for i in range(513):
+                for j in range(513):
+                    for k in range(3):
+                        image[i,j,k] = label_map[c[i,j]][k]
+            processed_outputs.append(image)
+        return TestTensors(processed_outputs)
+    
+    def save_processed_output(self, output: TestTensors, save_to: str, name: str):
+        from PIL import Image
+        c = 0
+        for d in output.to_numpy().data:
+            im = Image.fromarray(d)
+            fp = save_to + name + "." + str(c) + ".jpeg"
+            im.save(fp)
+            c += 1
+
+register_test(DeeplabModel, "deeplabv3")
 
 
 register_test(AzureDownloadableModel, "RAFT_vaiq_int8")
