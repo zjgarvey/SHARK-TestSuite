@@ -3,6 +3,8 @@
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+import os
+import onnx
 import numpy
 import torch
 import urllib
@@ -10,6 +12,7 @@ from pathlib import Path
 from PIL import Image
 from torchvision import transforms
 from e2e_testing.framework import SiblingModel
+from e2e_testing.onnx_utils import modify_model_output, node_output_name, node_name_from_back
 from e2e_testing.registry import register_test
 from e2e_testing.storage import TestTensors
 from .azure_models import AzureDownloadableModel
@@ -84,3 +87,49 @@ register_test(AzureDownloadableModel, "deeplabv3")
 # sibling test with all the bells & whistles
 constructor = lambda *args, **kwargs : DeeplabModel(AzureDownloadableModel, "deeplabv3", *args, **kwargs)
 register_test(constructor, "deeplabv3_real_with_pp")
+
+
+class TruncatedDeeplabModel(SiblingModel):
+    def __init__(self, n: int, op_type: str, *args, **kwargs):
+        self.n = n
+        self.op_type = op_type
+        super().__init__(*args, **kwargs)
+
+    def construct_model(self):
+        if not os.path.exists(self.sibling_inst.model):
+            self.sibling_inst.construct_model()
+        og_model = onnx.load(self.sibling_inst.model)
+        inf_model = onnx.shape_inference.infer_shapes(og_model, data_prop=True)
+        output_name = node_name_from_back(inf_model, self.n) if self.op_type == "" else node_output_name(inf_model, self.n, self.op_type)
+        new_model = modify_model_output(inf_model, output_name)
+        onnx.save(new_model, self.model)
+
+    def construct_inputs(self):
+        filename = str(Path(self.model).parent.joinpath("input.png"))
+        url = "https://github.com/pytorch/hub/raw/master/images/deeplab1.png"
+        try: urllib.URLopener().retrieve(url, filename)
+        except: urllib.request.urlretrieve(url, filename)
+        input_image = Image.open(filename)
+        input_image = input_image.convert("RGB")
+        self.img_size = input_image.size
+        preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            transforms.Resize((513,513)),
+        ])
+        input_tensor = preprocess(input_image)
+        input_batch = input_tensor.unsqueeze(0).transpose(1,2).transpose(2,3)
+        return TestTensors((input_batch,))
+
+trunc_constructor = lambda n, op_type : (lambda *args, **kwargs : TruncatedDeeplabModel(n, op_type, AzureDownloadableModel, "deeplabv3", *args, **kwargs))
+
+# register_test(trunc_constructor(2, "Conv"), "deeplabv3_2_Conv")
+# register_test(trunc_constructor(0, "Add"), "deeplabv3_0_Add")
+# register_test(trunc_constructor(0, "Mul"), "deeplabv3_0_Mul")
+# register_test(trunc_constructor(0, "Relu"), "deeplabv3_0_Relu")
+# register_test(trunc_constructor(1, "Relu"), "deeplabv3_1_Relu")
+# register_test(trunc_constructor(0, "Resize"), "deeplabv3_0_Resize")
+# register_test(trunc_constructor(1, "Resize"), "deeplabv3_1_Resize")
+for n in range(1, 7):
+    register_test(trunc_constructor(n, ""), f"deeplabv3_{n}_fb")
+

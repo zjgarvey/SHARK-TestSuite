@@ -6,3 +6,4 @@
 
 from .multi_conv import *
 from .shape_cos import *
+from .resize_tq import *

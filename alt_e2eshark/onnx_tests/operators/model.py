@@ -10,3 +10,4 @@ from .dynamic_quantize_linear import *
 from .pad import *
 from .resize import *
 from .conv import *
+from .transpose import *
