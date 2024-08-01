@@ -75,7 +75,7 @@ def main(args):
         config = OnnxTestConfig(
             str(TEST_DIR), SimpleIREEBackend(device=args.device, hal_target_backend=args.backend), pipeline
         )
-    elif args.mode == "onnx-ep":
+    elif args.mode == "ort-ep":
         # TODO: allow specifying provider explicitly from cl args.
         config = OnnxEpTestConfig(
             str(TEST_DIR), OnnxrtIreeEpBackend(device=args.device, hal_target_backend=args.backend))

@@ -8,6 +8,7 @@ import onnxruntime as ort
 from typing import TypeVar
 from e2e_testing.storage import TestTensors
 from e2e_testing.framework import CompiledOutput, ModelArtifact
+from onnx import ModelProto
 
 Invoker = TypeVar("Invoker")
 
@@ -82,22 +83,23 @@ class OnnxrtIreeEpBackend(BackendBase):
             self.sess_opt.intra_op_num_threads = intra_op_num_threads
         #  sess_opt.log_verbosity_level = 0
 
-    def compile(self, model, *, save_to: str = None):
+    def compile(self, model: ModelProto, *, save_to: str = None) -> ort.InferenceSession:
         session = ort.InferenceSession(
-                   model,
+                   model.SerializeToString(),
                    self.sess_opt,
                    providers=self.providers,
                )
         # can't save an onnx runtime session
         return session
 
-    def load(self, session: ort.InferenceSession, *, func_name=None):
-        def func(x):
+    def load(self, session: ort.InferenceSession, *, func_name=None) -> Invoker:
+        def func(x: TestTensors):
+            data = x.to_numpy().data
             session_inputs = session.get_inputs()
             session_outputs = session.get_outputs()
             model_output = session.run(
                 [output.name for output in session_outputs],
-                {session_inputs[i].name: x[i] for i in range(len(session_inputs))},
+                {session_inputs[i].name: data[i] for i in range(len(session_inputs))},
             )
             return TestTensors(model_output)
 

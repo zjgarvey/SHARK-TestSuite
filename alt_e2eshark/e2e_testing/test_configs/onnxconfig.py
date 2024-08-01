@@ -45,7 +45,7 @@ class OnnxEpTestConfig(TestConfig):
     def compile(self, model: onnx.ModelProto, *, save_to: str = None) -> InferenceSession:
         return self.backend.compile(model, save_to=save_to)
 
-    def run(self, session: InferenceSession, inputs: TestTensors) -> TestTensors:
+    def run(self, session: InferenceSession, inputs: TestTensors, *, func_name=None) -> TestTensors:
         func = self.backend.load(session)
         return func(inputs)
 
