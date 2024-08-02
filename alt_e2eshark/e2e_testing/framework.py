@@ -35,7 +35,9 @@ class OnnxModelInfo:
         input = input.to_numpy().data
         if not os.path.exists(self.model):
             self.construct_model()
-        session = onnxruntime.InferenceSession(self.model, None)
+        sess_options = onnxruntime.SessionOptions()
+        sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
+        session = onnxruntime.InferenceSession(self.model, sess_options)
         session_inputs = session.get_inputs()
         session_outputs = session.get_outputs()
 

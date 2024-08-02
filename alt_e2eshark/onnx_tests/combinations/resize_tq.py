@@ -16,7 +16,7 @@ from onnx.helper import (
 
 from e2e_testing.framework import OnnxModelInfo
 from e2e_testing.storage import TestTensors
-from e2e_testing.registry import register_test, register_with_name
+from e2e_testing.registry import register_test
 
 class ResizeTransposeQModel(OnnxModelInfo):
     def __init__(self, *args, **kwargs):
@@ -61,7 +61,7 @@ class ResizeTransposeQModel(OnnxModelInfo):
         model = make_model(graph)
         onnx.save(model, self.model)
 
-# register_test(ResizeTransposeQModel, "resize_tq")
+register_test(ResizeTransposeQModel, "resize_tq")
 
 class AnotherOne(ResizeTransposeQModel):
     def construct_inputs(self):
