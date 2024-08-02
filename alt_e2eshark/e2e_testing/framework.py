@@ -162,6 +162,16 @@ def result_comparison(test_result: TestResult, tol):
             f"num outputs: {len(output)} doesn't match num golden: {len(gold)} for test {test_result.name}"
         )
     match = []
+    # diff = output[0].to(dtype=gold[0].dtype) - gold[0]
+    # diffq = diff/gold[0]
+    # absdiff = torch.abs(diff)
+    # absdiffq = torch.nan_to_num(torch.abs(diffq))
+    # absmax = torch.max(absdiff)
+    # ind = torch.argmax(absdiff)
+    # absmaxq = torch.max(absdiffq)
+    # indq = torch.argmax(absdiffq)
+    # print(f"max abs error {absmax} at {ind}. gold = {gold[0].flatten()[ind]}, other = {output[0].flatten()[ind]}")
+    # print(f"max rel error {absmaxq} at {indq}. gold = {gold[0].flatten()[indq]}, other = {output[0].flatten()[indq]}")
     for i in range(len(output)):
         match.append(torch.isclose(output[i].to(dtype=gold[i].dtype), gold[i], *tol))
     return match
