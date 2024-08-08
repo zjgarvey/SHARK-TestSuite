@@ -26,12 +26,16 @@ def dtype_from_ort_node(node):
     raise NotImplementedError(f"Unhandled dtype string found: {dtypestr}")
 
 
-def generate_input_from_node(node: onnxruntime.capi.onnxruntime_pybind11_state.NodeArg):
+def generate_input_from_node(node: onnxruntime.capi.onnxruntime_pybind11_state.NodeArg, dim_param_dict = None):
     """A convenience function for generating sample inputs for an onnxruntime node"""
-    for dim in node.shape:
+    shape = list(node.shape)
+    for (i, dim) in enumerate(shape):
+        if dim_param_dict and isinstance(dim, str) and dim in dim_param_dict.keys():
+            dim = dim_param_dict[dim]
+            shape[i] = dim
         if not isinstance(dim, int):
             raise TypeError(
-                f"input node '{node.name}' has a dim='{dim}', with invalid type: {type(dim)}\nexpected type: int.\nIf your model has dim_params, consider fixing them or setting custom inputs for this test."
+                f"input node '{node.name}' has a dim='{dim}', with invalid type: {type(dim)}\nexpected type: int.\nIf your model has dim_params, consider fixing them or supplying a dim_param_dict."
             )
         if dim <= 0:
             raise ValueError(
@@ -39,24 +43,24 @@ def generate_input_from_node(node: onnxruntime.capi.onnxruntime_pybind11_state.N
             )
     rng = numpy.random.default_rng(19)
     if node.type == "tensor(float)":
-        return rng.random(node.shape).astype(numpy.float32)
+        return rng.random(shape).astype(numpy.float32)
     if node.type == "tensor(int)" or node.type == "tensor(int32)":
-        return rng.integers(0, 10000, size=node.shape, dtype=numpy.int32)
+        return rng.integers(0, 10000, size=shape, dtype=numpy.int32)
     if node.type == "tensor(int8)":
-        return rng.integers(-127, 128, size=node.shape, dtype=numpy.int8)
+        return rng.integers(-127, 128, size=shape, dtype=numpy.int8)
     if node.type == "tensor(int64)":
-        return rng.integers(0, 5, size=node.shape, dtype=numpy.int64)
+        return rng.integers(0, 5, size=shape, dtype=numpy.int64)
     if node.type == "tensor(bool)":
-        return rng.integers(0, 2, size=node.shape, dtype=bool)
+        return rng.integers(0, 2, size=shape, dtype=bool)
     raise NotImplementedError(f"Found an unhandled dtype: {node.type}.")
 
 
-def get_sample_inputs_for_onnx_model(model_path):
+def get_sample_inputs_for_onnx_model(model_path, dim_param_dict = None):
     """A convenience function for generating sample inputs for an onnx model"""
     s = onnxruntime.InferenceSession(model_path, None)
     inputs = s.get_inputs()
     sample_inputs = TestTensors(
-        tuple([generate_input_from_node(node) for node in inputs])
+        tuple([generate_input_from_node(node, dim_param_dict) for node in inputs])
     )
     return sample_inputs
 

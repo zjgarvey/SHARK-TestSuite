@@ -31,6 +31,7 @@ from e2e_testing.backends import SimpleIREEBackend, OnnxrtIreeEpBackend
 
 ALL_STAGES = [
     "setup",
+    "construct_inputs",
     "native_inference",
     "import_model",
     "preprocessing",
@@ -143,6 +144,9 @@ def run_tests(
             if curr_stage in stages:
                 # build an instance of the test info class
                 inst = t.model_constructor(t.unique_name, log_dir)
+            
+            curr_stage = "construct_inputs"
+            if curr_stage in stages:
                 # generate inputs from the test info instance
                 if load_inputs:
                     inputs = inst.load_inputs(log_dir)

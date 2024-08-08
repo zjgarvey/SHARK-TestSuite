@@ -29,6 +29,7 @@ class OnnxModelInfo:
         self.name = name
         self.model = os.path.join(onnx_model_path, "model.onnx")
         self.opset_version = opset_version
+        self.dim_param_dict = None
 
     def forward(self, input: Optional[TestTensors] = None) -> TestTensors:
         """Applies self.model to self.input. Only override if necessary for specific models"""
@@ -56,7 +57,7 @@ class OnnxModelInfo:
         """can be overridden to generate specific inputs, but a default is provided for convenience"""
         if not os.path.exists(self.model):
             self.construct_model()
-        return get_sample_inputs_for_onnx_model(self.model)
+        return get_sample_inputs_for_onnx_model(self.model, self.dim_param_dict)
 
     def apply_postprocessing(self, output: TestTensors):
         """can be overridden to define post-processing methods for individual models"""
@@ -64,6 +65,11 @@ class OnnxModelInfo:
     
     def save_processed_output(self, output: TestTensors, save_to: str, name: str):
         """can be overridden to provide instructions on saving processed outputs (e.g., images, labels, text)"""
+        pass
+
+    def construct_dim_param_dict(self):
+        """can be overriden to set self.dim_param_dict for automatically constructing inputs"""
+        pass
 
     # the following helper methods aren't meant to be overriden
 
