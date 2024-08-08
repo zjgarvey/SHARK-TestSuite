@@ -27,26 +27,25 @@ class ExplicitPathModel(OnnxModelInfo):
         else:
             shutil.copy(self.external_model, self.model)
 
-path_prefix_0 = "/mnt/nas_share/migraphx/models/"
+root_share = "/mnt/nas_share/"
+path_prefix_0 = os.path.join(root_share, "migraphx/models/")
 path_prefix_ORT = os.path.join(path_prefix_0, "ORT")
 path_prefix_onnx_models = os.path.join(path_prefix_ORT, "onnx_models")
 path_prefix_zoo = os.path.join(path_prefix_0, "onnx-model-zoo")
 path_prefix_mlperf = os.path.join(path_prefix_0, "mlperf")
 
 prefix_name_dict = dict()
-ORT_list = [
-    "bert_base_cased_1",
-    "bert_base_uncased_1",
-    "bert_large_uncased_1",
-    "distilgpt2_1",
+test_list = [
+    "ORT/bert_base_cased_1",
+    "ORT/bert_base_uncased_1",
+    "ORT/bert_large_uncased_1",
+    "ORT/distilgpt2_1",
+    "ORT/onnx_models/bert_base_cased_1_fp16_gpu",
+    "ORT/onnx_models/bert_large_uncased_1_fp16_gpu",
+    "ORT/onnx_models/distilgpt2_1_fp16_gpu",
+    "onnx-model-zoo/gpt2-10",
+    "mlperf/resnet50_v1",
 ]
-onnx_models_list = [
-    "onnx_models/bert_base_cased_1_fp16_gpu",
-    "onnx_models/bert_large_uncased_1_fp16_gpu",
-    "onnx_models/distilgpt2_1_fp16_gpu",
-]
-zoo_list = ["gpt2-10"]
-mlperf_list = ["resnet50_v1"]
 
 dim_params = {
     "unk__616" : 1,
@@ -56,17 +55,20 @@ dim_params = {
 }
 
 
-generator = lambda prefix, name : (lambda *args, **kwargs : ExplicitPathModel(os.path.join(prefix,name)+".onnx", "FP32", dim_params, *args, **kwargs))
+generator = lambda name : (lambda *args, **kwargs : ExplicitPathModel(os.path.join(path_prefix_0, name)+".onnx", "FP32", dim_params, *args, **kwargs))
 
 
-for name in ORT_list:
-    register_test(generator(path_prefix_ORT, name), name + "_basic")
+for name in test_list:
+    register_test(generator(name), name + "_basic")
 
-for name in onnx_models_list:
-    register_test(generator(path_prefix_onnx_models, name), name + "_basic")
 
-for name in zoo_list:
-    register_test(generator(path_prefix_zoo, name), name + "_basic")
+# from ..helper_classes import TruncatedModel, get_trucated_constructor
 
-for name in mlperf_list:
-    register_test(generator(path_prefix_mlperf, name), name + "_basic")
+# class TruncWithDimParams(TruncatedModel):
+#     def construct_dim_param_dict(self):
+#         self.dim_param_dict = dim_params
+
+# To step-test a compile failure for BERT:
+# constructor = get_trucated_constructor(TruncWithDimParams, generator(path_prefix_0, ORT_list[1]), ORT_list[1] + "_basic")
+# for n in range(1, 5):
+#     register_test(constructor(n, "Gather"), f"bert_base_cased_1_TRUNC_{n}_gather")

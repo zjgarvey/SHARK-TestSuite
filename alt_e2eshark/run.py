@@ -68,12 +68,11 @@ def get_tests(groups, test_filter):
 
 def main(args):
     """Sets up config and test list based on CL args, then runs the tests"""
-
     # setup config
     if args.mode == "onnx-iree":
         pipeline = REDUCE_TO_LINALG_PIPELINE if args.torchtolinalg else []
         config = OnnxTestConfig(
-            str(TEST_DIR), SimpleIREEBackend(device=args.device, hal_target_backend=args.backend), pipeline
+            str(TEST_DIR), SimpleIREEBackend(device=args.device, hal_target_backend=args.backend, extra_args=args.iree_compile_args), pipeline
         )
     elif args.mode == "ort-ep":
         # TODO: allow specifying provider explicitly from cl args.
@@ -115,8 +114,6 @@ def run_tests(
 
     # set up a parent log directory to store results
     parent_log_dir = str(TEST_DIR) + "/" + dir_name + "/"
-    if not os.path.exists(parent_log_dir):
-        os.mkdir(parent_log_dir)
 
     num_passes = 0
     warnings.filterwarnings("ignore")
@@ -133,7 +130,7 @@ def run_tests(
         # set log directory for the individual test
         log_dir = parent_log_dir + t.unique_name + "/"
         if not os.path.exists(log_dir):
-            os.mkdir(log_dir)
+            os.makedirs(log_dir)
 
         try:
             # TODO: convert staging to an Enum and figure out how to specify staging from args
@@ -273,6 +270,13 @@ def _get_argparse():
         choices=["llvm-cpu", "amd-aie", "rocm", "cuda", "vmvx", "metal-spirv", "vulkan-spirv"],
         default="llvm-cpu",
         help="specifies the iree-hal-target-backend for compile phase",
+    )
+    parser.add_argument(
+        "-ica",
+        "--iree-compile-args",
+        nargs="*",
+        default = None,
+        help="Manually specify extra args for iree-compile.",
     )
     # parser.add_argument(
     #     "-f",
