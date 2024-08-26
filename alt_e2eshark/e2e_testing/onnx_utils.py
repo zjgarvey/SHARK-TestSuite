@@ -1,8 +1,10 @@
+import io
 import numpy
 import onnx
 import onnxruntime
 import torch
 from e2e_testing.storage import TestTensors
+from torch.onnx._constants import ONNX_TORCHSCRIPT_EXPORTER_MAX_OPSET as max_opset_ver
 from typing import Optional
 from pathlib import Path
 
@@ -179,3 +181,45 @@ def find_node(model: onnx.ModelProto, n: int, op_name: str) -> onnx.NodeProto:
             break
         match_counter += 1
     return key
+
+def pytorch_to_onnx(model_info) -> onnx.ModelProto:
+    if not model_info.model:
+        model_info.construct_model()
+    buffer = io.BytesIO()
+    input_signature = model_info.get_signature(from_inputs=True)
+    from torch_mlir.torchscript import TensorPlaceholder
+    input_data = []
+    for s, d in zip(input_signature[0], input_signature[1]):
+        input_data.append(TensorPlaceholder(s,d))
+    print(input_data[0].shape)
+    # Process the type information so we export with the dynamic shape information
+    examples = []
+    input_names = []
+    dynamic_tensors = {}
+    for index, arg in enumerate(input_data):
+        shape = map(lambda d: d if d >= 0 else 1, arg.shape)
+        shape = tuple(shape)
+        examples.append(torch.zeros(size=shape, dtype=arg.dtype))
+
+        input_name = "input_{}".format(index)
+        input_names.append(input_name)
+
+        dynamic_dims = {}
+        for dimindex, dim in enumerate(arg.shape):
+            if dim < 0:
+                dynamic_dims[dimindex] = "dim_{}_{}".format(index, dimindex)
+
+        if dynamic_dims:
+            dynamic_tensors[input_name] = dynamic_dims
+
+    examples = tuple(examples)
+    torch.onnx.export(
+        model_info.model,
+        examples,
+        buffer,
+        input_names=input_names,
+        dynamic_axes=dynamic_tensors,
+        opset_version=max_opset_ver,
+    )
+    buffer = buffer.getvalue()
+    return onnx.load_from_string(buffer)

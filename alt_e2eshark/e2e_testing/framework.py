@@ -16,6 +16,78 @@ from e2e_testing.onnx_utils import *
 
 Module = TypeVar("Module")
 
+class PytorchModelInfo(torch.nn.Module):
+    def __init__(self, name: str, dir_path: str):
+        super().__init__()
+        self.name = name
+        self.dir_path = dir_path
+        self.model=None
+    
+    def forward(self, inputs: TestTensors) -> TestTensors:
+        if not self.model:
+            self.construct_model()
+        y = self.model(*inputs.data).to_tuple()
+        output = []
+        def unpack(tup):
+            for z in tup:
+                if isinstance(z, torch.Tensor):
+                    output.append(z)
+                elif isinstance(z, tuple):
+                    unpack(z)
+        unpack(y)
+        return TestTensors(tuple(output))
+        
+
+        with open("dump.txt", "w+") as file:
+            for z in y:
+                file.write(str(type(z))) 
+        return TestTensors(y)
+
+    def construct_model(self):
+        """use this method to define a torch.nn.Module for testing. Set self.model to an instance of this class."""
+        raise NotImplementedError("Register this test with a model info class which overrides construct_model().")
+
+    def get_signature(self, *, from_inputs=True):
+        """Must be overridden. 
+        This function should return a list of the form [[shape_0, shape_1,...], [dtype_0, dtype_1,...]]
+        shapes should use -1 for dynamic dimensions.
+        if from_inputs, then the signature should represent the shape and dtypes of model inputs.
+        otherwise, the signature should represent the model outputs.
+        """
+        raise NotImplementedError("Register this test with a model info class which overrides get_signature()")
+
+    def construct_inputs(self) -> TestTensors:
+        """Must be overridden since there is no good way to infer the input shape from a torch.nn.Module."""
+        raise NotImplementedError("Register this test with a model info class which overrides construct_inputs().")
+    
+    def apply_postprocessing(self, output: TestTensors):
+        """can be overridden to define post-processing methods for individual models"""
+        return output
+    
+    def save_processed_output(self, output: TestTensors, save_to: str, name: str):
+        """can be overridden to provide instructions on saving processed outputs (e.g., images, labels, text)"""
+        pass
+
+    def load_inputs(self, dir_path):
+        """computes the input signature of the onnx model and loads inputs from bin files"""
+        shapes, dtypes = self.get_signature(from_inputs=True)
+        try:
+            return TestTensors.load_from(shapes, dtypes, dir_path, "input")
+        except FileNotFoundError:
+            print(
+                "\tWarning: bin files missing. Generating new inputs. Please re-run this test without --load-inputs to save input bin files."
+            )
+            return self.construct_inputs()
+
+    def load_outputs(self, dir_path):
+        """computes the input signature of the onnx model and loads outputs from bin files"""
+        shapes, dtypes = self.get_signature(from_inputs=False)
+        return TestTensors.load_from(shapes, dtypes, dir_path, "output")
+
+    def load_golden_outputs(self, dir_path):
+        """computes the input signature of the onnx model and loads golden outputs from bin files"""
+        shapes, dtypes = self.get_signature(from_inputs=False)
+        return TestTensors.load_from(shapes, dtypes, dir_path, "golden_output")
 
 class OnnxModelInfo:
     """Stores information about an onnx test: the filepath to model.onnx, how to construct/download it, and how to construct sample inputs for a test run."""
@@ -125,7 +197,7 @@ class OnnxModelInfo:
             onnx.save(model, self.model)
 
 # TODO: extend TestModel to a union, or make TestModel a base class when supporting other frontends
-TestModel = OnnxModelInfo 
+TestModel = Union[OnnxModelInfo, PytorchModelInfo]
 CompiledArtifact = TypeVar("CompiledArtifact")
 ModelArtifact = Union[Module, onnx.ModelProto]
 CompiledOutput = Union[CompiledArtifact, ort.InferenceSession]

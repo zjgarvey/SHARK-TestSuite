@@ -20,11 +20,12 @@ sys.path.append(TEST_DIR)
 from e2e_testing.framework import *
 
 # import frontend test configs:
+from e2e_testing.test_configs.mlir_configbase import REDUCE_TO_LINALG_PIPELINE
 from e2e_testing.test_configs.onnxconfig import (
     OnnxTestConfig,
     OnnxEpTestConfig,
-    REDUCE_TO_LINALG_PIPELINE,
 )
+from e2e_testing.test_configs.pytorchconfig import PytorchTestConfig
 
 # import backends
 from e2e_testing.backends import SimpleIREEBackend, OnnxrtIreeEpBackend
@@ -55,6 +56,7 @@ def get_tests(groups, test_filter, testsfile):
         from onnx_tests.combinations import model
     if models:
         from onnx_tests.models import model
+        from pytorch_tests.models import model
     if operators:
         from onnx_tests.operators import model
 
@@ -159,8 +161,7 @@ def run_tests(
                 inst = t.model_constructor(t.unique_name, log_dir)
                 # this is highly onnx specific. 
                 # TODO: Figure out how to factor this out of run.py
-                if not os.path.exists(inst.model):
-                    inst.construct_model()
+                inst.construct_model()
             
             artifact_save_to = None if no_artifacts else log_dir
             # generate mlir from the instance using the config
@@ -206,10 +207,12 @@ def run_tests(
             # apply model-specific post-processing:
             curr_stage = "postprocessing"
             if curr_stage in stages:
-                golden_outputs = inst.apply_postprocessing(golden_outputs_raw)
-                outputs = inst.apply_postprocessing(outputs_raw)
-                inst.save_processed_output(golden_outputs, log_dir, "golden_output")
-                inst.save_processed_output(outputs, log_dir, "output")
+                if golden_outputs_raw:
+                    golden_outputs = inst.apply_postprocessing(golden_outputs_raw)
+                    inst.save_processed_output(golden_outputs, log_dir, "golden_output")
+                if outputs_raw:
+                    outputs = inst.apply_postprocessing(outputs_raw)
+                    inst.save_processed_output(outputs, log_dir, "output")
 
         except Exception as e:
             status_dict[t.unique_name] = curr_stage
