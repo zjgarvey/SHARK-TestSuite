@@ -24,6 +24,8 @@ ALL_MODELS = [
     "migraphx_huggingface-transformers__bert_mrpc8",
     "migraphx_mlperf__bert_large_mlperf",
     "migraphx_mlperf__resnet50_v1",
+    "migraphx_models__whisper-tiny-decoder",
+    "migraphx_models__whisper-tiny-encoder",
     "migraphx_onnx-misc__taau_low_res_downsample_d2s_for_infer_time_fp16_opset11",
     "migraphx_onnx-model-zoo__gpt2-10",
     "migraphx_ORT__bert_base_cased_1",
@@ -43,6 +45,20 @@ ALL_MODELS = [
     "migraphx_torchvision__resnet50i1",
     "migraphx_torchvision__resnet50i64",
 ]
+
+temp_crashing_set = [
+    # OOM ?
+    "migraphx_bert__bert-large-uncased",
+    "migraphx_mlperf__bert_large_mlperf",
+    "migraphx_ORT__bert_large_uncased_1",
+    "migraphx_sd__unet__model",
+    "migraphx_sdxl__unet__model",
+]
+
+class NoRun(AzureDownloadableModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise NotImplementedError("No xfail/crashing sets are implemented yet. Failing test during setup for now.")
 
 
 def dim_param_constructor(dim_param_dict):
@@ -70,8 +86,7 @@ def dim_param_constructor(dim_param_dict):
 ORT_model_names = [
     "migraphx_ORT__bert_base_cased_1",  # batch_size, seq_len
     "migraphx_ORT__bert_base_uncased_1",  # batch_size, seq_len
-    # the following test currently crashes for some reason (maybe opset version related?)
-    # "migraphx_ORT__bert_large_uncased_1", # batch_size, seq_len
+    "migraphx_ORT__bert_large_uncased_1", # batch_size, seq_len
     "migraphx_ORT__distilgpt2_1",  # batch_size, seq_len
     "migraphx_ORT__onnx_models__bert_base_cased_1_fp16_gpu",  # batch_size, seq_len
     "migraphx_ORT__onnx_models__bert_large_uncased_1_fp16_gpu",  # batch_size, seq_len
@@ -79,7 +94,7 @@ ORT_model_names = [
 ]
 
 llm_dict_0 = {"batch_size": 1, "seq_len": 128}
-for name in ORT_model_names:
+for name in set(ORT_model_names).difference(temp_crashing_set):
     register_test(dim_param_constructor(llm_dict_0), name)
 
 static_dim_model_names = [
@@ -99,7 +114,7 @@ static_dim_model_names = [
     "migraphx_huggingface-transformers__bert_mrpc8",  # need to specify input range for indices input [-2,1]
 ]
 
-for name in static_dim_model_names:
+for name in set(static_dim_model_names).difference(temp_crashing_set):
     register_test(dim_param_constructor(None), name)
 
 misc_models = {
@@ -128,12 +143,11 @@ misc_models = {
     },
     "migraphx_models__whisper-tiny-decoder" : {"batch_size" : 1, "decoder_sequence_length" : 64, "encoder_sequence_length / 2" : 32},
     "migraphx_models__whisper-tiny-encoder" : {"batch_size" : 1, "feature_size" : 80, "encoder_sequence_length" : 64},
-    # this one crashes for some reason...
-    # "migraphx_sdxl__unet__model" : {"batch_size" : 1, "num_channels" : 4, "height" : 512, "width" : 512, "steps" : 2, "sequence_length" : 64}
+    "migraphx_sdxl__unet__model" : {"batch_size" : 1, "num_channels" : 4, "height" : 512, "width" : 512, "steps" : 2, "sequence_length" : 64}
 }
 
-for key, dim_param in misc_models.items():
-    register_test(dim_param_constructor(dim_param), key)
+for key in set(misc_models.keys()).difference(temp_crashing_set):
+    register_test(dim_param_constructor(misc_models[key]), key)
 
 
 ### -------------------------------- ###
