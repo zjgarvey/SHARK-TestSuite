@@ -16,15 +16,21 @@ module {
     %2 = arith.index_cast %dim_1 : index to i64
     %3 = linalg.fill ins(%0 : i64) outs(%1 : tensor<1xi64>) -> tensor<1xi64>
     %4 = linalg.fill ins(%2 : i64) outs(%1 : tensor<1xi64>) -> tensor<1xi64>
+    // [dim0, dim1, 1024]
     %concat = tensor.concat dim(0) %3, %4, %cst : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
     %extracted_slice = tensor.extract_slice %concat[0] [1] [1] : tensor<3xi64> to tensor<1xi64>
+    // dim0
     %extracted = tensor.extract %extracted_slice[%c0] : tensor<1xi64>
+    // dim0 == 0?
+    // also why i64?
     %5 = arith.cmpi eq, %extracted, %c0_i64 : i64
     %6 = tensor.empty() : tensor<i1>
     %7 = linalg.fill ins(%5 : i1) outs(%6 : tensor<i1>) -> tensor<i1>
     %8 = tensor.empty() : tensor<i64>
     %9 = linalg.fill ins(%0 : i64) outs(%8 : tensor<i64>) -> tensor<i64>
     %10 = linalg.fill ins(%extracted : i64) outs(%8 : tensor<i64>) -> tensor<i64>
+    // This is actually ridiculous:
+    // %11 = dim0 == 0 ? dim0 : dim0
     %11 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = []} ins(%7, %9, %10 : tensor<i1>, tensor<i64>, tensor<i64>) outs(%8 : tensor<i64>) {
     ^bb0(%in: i1, %in_9: i64, %in_10: i64, %out: i64):
       %41 = arith.select %in, %in_9, %in_10 : i64
@@ -37,6 +43,7 @@ module {
     %13 = linalg.fill ins(%12 : i1) outs(%6 : tensor<i1>) -> tensor<i1>
     %14 = linalg.fill ins(%2 : i64) outs(%8 : tensor<i64>) -> tensor<i64>
     %15 = linalg.fill ins(%extracted_4 : i64) outs(%8 : tensor<i64>) -> tensor<i64>
+    // %16 = dim1 == 0 ? dim1 : dim1
     %16 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = []} ins(%13, %14, %15 : tensor<i1>, tensor<i64>, tensor<i64>) outs(%8 : tensor<i64>) {
     ^bb0(%in: i1, %in_9: i64, %in_10: i64, %out: i64):
       %41 = arith.select %in, %in_9, %in_10 : i64
@@ -45,6 +52,7 @@ module {
     %extracted_5 = tensor.extract %16[] : tensor<i64>
     %extracted_slice_6 = tensor.extract_slice %concat[2] [1] [1] : tensor<3xi64> to tensor<1xi64>
     %extracted_7 = tensor.extract %extracted_slice_6[%c0] : tensor<1xi64>
+    // literally 1024 == 0
     %17 = arith.cmpi eq, %extracted_7, %c0_i64 : i64
     %18 = linalg.fill ins(%17 : i1) outs(%6 : tensor<i1>) -> tensor<i1>
     %19 = linalg.fill ins(%extracted_7 : i64) outs(%8 : tensor<i64>) -> tensor<i64>
