@@ -17,6 +17,8 @@ def get_shape_string(torch_tensor):
     dtype = torch_tensor.dtype
     if dtype == torch.int64:
         input_shape_string += "xi64"
+    elif dtype == torch.float64 or dtype == torch.double:
+        input_shape_string += "xf64"
     elif dtype == torch.float32 or dtype == torch.float:
         input_shape_string += "xf32"
     elif dtype == torch.bfloat16 or dtype == torch.float16 or dtype == torch.int16:
@@ -34,6 +36,8 @@ def unpack_bytearray(barray, num_elem, dtype):
     num_array = None
     if dtype == torch.int64:
         num_array = struct.unpack("q" * num_elem, barray)
+    elif dtype == torch.float64 or dtype == torch.double:
+        num_array = struct.unpack("d" * num_elem, barray)
     elif dtype == torch.float32 or dtype == torch.float:
         num_array = struct.unpack("f" * num_elem, barray)
     elif dtype == torch.bfloat16:
@@ -92,7 +96,7 @@ def pack_tensor(modelinput):
         bytearr = struct.pack("%sl" % len(mylist), *mylist)
     elif dtype == torch.uint32:
         bytearr = struct.pack("%sL" % len(mylist), *mylist)
-    elif dtype == torch.float64:
+    elif dtype == torch.float64 or dtype == torch.double:
         bytearr = struct.pack("%sd" % len(mylist), *mylist)
     elif dtype == torch.float32 or dtype == torch.float:
         bytearr = struct.pack("%sf" % len(mylist), *mylist)

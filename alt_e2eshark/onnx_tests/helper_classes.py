@@ -72,8 +72,8 @@ class SiblingModel(OnnxModelInfo):
     def __init__(self, og_model_info_class: type, og_name: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # additionally store an instance of the sibling test
-        run_dir = Path(self.model).parents[1]
-        og_model_path = os.path.join(run_dir, og_name)
+        self.run_dir = Path(self.model).parents[1]
+        og_model_path = os.path.join(self.run_dir, og_name)
         self.sibling_inst = og_model_info_class(og_name, og_model_path)
 
     def construct_model(self):

@@ -13,6 +13,8 @@ def dtype_from_ort_node(node):
     if typestr[0:6] != "tensor":
         raise TypeError(f"node: {node} has invalid typestr {typestr}")
     dtypestr = typestr[7:-1]
+    if dtypestr == "double":
+        return torch.float64
     if dtypestr == "float":
         return torch.float
     if dtypestr == "int" or dtypestr == "int32":
@@ -62,6 +64,8 @@ def generate_input_from_node(node: onnxruntime.capi.onnxruntime_pybind11_state.N
     int_dims = get_node_shape_from_dim_param_dict(node, dim_param_dict)
 
     rng = numpy.random.default_rng(19)
+    if node.type == "tensor(double)":
+        return rng.random(int_dims).astype(numpy.float64)
     if node.type == "tensor(float)":
         return rng.random(int_dims).astype(numpy.float32)
     if node.type == "tensor(int)" or node.type == "tensor(int32)":

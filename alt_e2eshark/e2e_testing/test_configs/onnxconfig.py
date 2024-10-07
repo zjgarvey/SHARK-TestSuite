@@ -163,11 +163,13 @@ class CLOnnxTestConfig(TestConfig):
             error_msg += f"Error detail in '{detail_log}'"
             raise FileNotFoundError(error_msg)
         # store output signatures for loading the outputs of iree-run-module
-        self.tensor_info_dict[program.name] = program.get_signature(from_inputs=False)
+        # self.tensor_info_dict[program.name] = program.get_signature(from_inputs=False)
         # get the func name
         # TODO put this as an OnnxModelInfo attr?
         model = onnx.load(program.model, load_external_data=False)
         func_name = model.graph.name
+        elided_script = f"torch-mlir-opt --mlir-elide-resource-strings-if-larger=100 {mlir_file} -o {os.path.join(save_to, 'elided.mlir')}"
+        os.system(elided_script)
         return mlir_file, func_name
     
     def preprocess_model(self, mlir_module: str, *, save_to: str = None) -> Module:

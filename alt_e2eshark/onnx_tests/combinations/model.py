@@ -8,3 +8,4 @@ from .multi_conv import *
 from .quant_relu import *
 from .quant_resize import *
 from .shape_cos import *
+from .expand import *
