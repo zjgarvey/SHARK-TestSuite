@@ -3,6 +3,7 @@
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+import numpy as np
 from onnx import TensorProto
 from onnx.helper import make_tensor_value_info, make_tensor
 
@@ -12,17 +13,17 @@ from e2e_testing.registry import register_with_name, register_test
 class ConvRepro(BuildAModel):
     def construct_i_o_value_info(self):
         self.input_vi = [
-            make_tensor_value_info("X", TensorProto.FLOAT, [1,256,112,112]),
-            make_tensor_value_info("W", TensorProto.FLOAT, [256,1,3,3]),
-            make_tensor_value_info("B", TensorProto.FLOAT, [256]),
+            make_tensor_value_info("X", TensorProto.FLOAT, [1,2,4,4]),
+            make_tensor_value_info("W", TensorProto.FLOAT, [2,1,3,3]),
+            make_tensor_value_info("B", TensorProto.FLOAT, [2]),
             ]
-        self.output_vi = [make_tensor_value_info("Y", TensorProto.FLOAT, [1,256,56,56])]
+        self.output_vi = [make_tensor_value_info("Y", TensorProto.FLOAT, [1,2,2,2])]
     
     def construct_nodes(self):
         app_node = self.get_app_node()
-        app_node("Conv",["X","W","B"],["Y"],group=256,kernel_shape=[3,3],pads=[1,1,1,1],strides=[2,2])
+        app_node("Conv",["X","W","B"],["Y"],group=2,kernel_shape=[3,3],pads=[0,0,0,0],strides=[1,1])
 
-register_test(ConvRepro, "conv_depthwise_stride_2")
+register_test(ConvRepro, "conv_depthwise_stride")
 
 class QConvModelBase(BuildAModel):
     def __init__(self, specs, *args, **kwargs):
@@ -140,3 +141,44 @@ class QConv1DModel(BuildAModel):
         ]
 
 register_test(QConv1DModel, "qconv1d_basic")
+
+
+
+def get_constructor(weight_scale, bias_scale, input_scale):
+    valid_params = (bias_scale == (weight_scale * input_scale))
+    class NumericFailQConv(BuildAModel):
+        def __init__(self, *args, **kwargs):
+            if valid_params:
+                print(f"The scales for weight ({weight_scale}), bias ({bias_scale}), and input ({input_scale}) are compatible.")
+            else: 
+                print(f"Warning, the scales for weight ({weight_scale}), bias ({bias_scale}), and input ({input_scale}) are incompatible.")
+            super().__init__(*args, **kwargs)
+
+        def construct_i_o_value_info(self):
+            self.input_vi = [make_tensor_value_info("X", TensorProto.FLOAT, [1,24,112,112])]
+            self.output_vi = [make_tensor_value_info("Y", TensorProto.FLOAT, [1,24,112,112])]
+        
+        def construct_initializers(self):
+            self.initializers = [
+                make_tensor("bias", TensorProto.INT8, [24], np.random.randint(-128, 127,[24],np.int8)),
+                make_tensor("weight", TensorProto.INT8, [24,1,3,3], np.random.randint(-128,127,[24,1,3,3], np.int8)),
+                make_tensor("weight_scale", TensorProto.FLOAT, [], [weight_scale]),
+                make_tensor("weight_zp", TensorProto.INT8, [], [0]),
+                make_tensor("bias_scale", TensorProto.FLOAT, [], [bias_scale]),
+                make_tensor("bias_zp", TensorProto.INT8, [], [0]),
+                make_tensor("input_scale", TensorProto.FLOAT, [], [input_scale]),
+                make_tensor("input_zp", TensorProto.INT8, [], [0]),
+            ]
+        
+        def construct_nodes(self):
+            app_node = self.get_app_node()
+            app_node("DequantizeLinear", ["weight","weight_scale","weight_zp"],["dqw"])
+            app_node("DequantizeLinear", ["bias","bias_scale","bias_zp"],["dqb"])
+            app_node("QuantizeLinear", ["X", "input_scale", "input_zp"], ["qi"])
+            app_node("DequantizeLinear", ["qi","input_scale","input_zp"],["dqi"])
+            app_node("Conv", ["dqi", "dqw", "dqb"], ["Y"], group=24, kernel_shape=[3,3], pads=[1,1,1,1])
+    return NumericFailQConv
+
+register_test(get_constructor(1.0,0.25,0.5), "qconv_numerics_mismatch")
+
+register_test(get_constructor(0.5,0.25,0.5), "qconv_numerics_match")
