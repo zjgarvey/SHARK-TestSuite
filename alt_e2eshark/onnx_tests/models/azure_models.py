@@ -229,6 +229,17 @@ class AzureRemoveMetadataProps(AzureDownloadableModel):
 
 register_test(AzureRemoveMetadataProps, "resnetv2_50x1_bit.goog_in21k_ft_in1k_vaiq")
 
+face_analysis_models = [
+    "face_analysis_1k3d68",
+    "face_analysis_2d106det",
+    "face_analysis_genderage",
+    "face_analysis_glintr100",
+    "face_analysis_scrfd_10g_bnkps",
+]
+
+for model in face_analysis_models:
+    register_test(AzureDownloadableModel, model)
+
 from ..helper_classes import TruncatedModel, get_truncated_constructor
 
 const = get_truncated_constructor(TruncatedModel, AzureDownloadableModel, "mvitv2_tiny")

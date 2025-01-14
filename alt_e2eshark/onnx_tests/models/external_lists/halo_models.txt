@@ -2,3 +2,8 @@ flux_1_dev_transformer
 flux_1_dev_clip
 flux_1_dev_t5
 llama3_1_8b
+face_analysis_1k3d68
+face_analysis_2d106det
+face_analysis_genderage
+face_analysis_glintr100
+face_analysis_scrfd_10g_bnkps
